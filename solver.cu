@@ -1,11 +1,14 @@
 #ifndef SOLVER_H
 #define SOLVER_H
 
-#ifdef __CUDACC__
-#define CUDA_CALLABLE_MEMBER __host__ __device__
-#else
-#define CUDA_CALLABLE_MEMBER
-#endif 
+#ifndef CUDA_CALLABLE_MEMBER_OVERWRITE
+  #ifdef __CUDACC__
+    #define CUDA_CALLABLE_MEMBER __host__ __device__
+  #else
+    #define CUDA_CALLABLE_MEMBER
+  #endif 
+#endif
+
 #include <iostream>
 
 using namespace std;
@@ -26,7 +29,7 @@ class TemplateBaseClass_t
     CUDA_CALLABLE_MEMBER 
       virtual TemplateBaseClass_t operator/(const float_tt &d) const ;
     CUDA_CALLABLE_MEMBER 
-      virtual TemplateBaseClass_t norm() const ;
+      virtual TemplateBaseClass_t compare(const TemplateBaseClass_t& _TemplateBaseClass) const ;
 };
 
 template <typename BaseClass_t>
@@ -70,7 +73,10 @@ class RK45Solver_t
     const RKF_t RKF;
     float_tt dt, err, tol;
     err_n_dt_t<float_tt> err_n_dt;
-    BaseClass_t BaseClass_out_deg;
+    BaseClass_t BaseClass_out_deg,
+                K1, K2, K3, K4, K5, K6,
+                K1int, K2int, K3int, K4int, K5int, K6int,
+                dX;
     CallableClass_t Callable;
 
     CUDA_CALLABLE_MEMBER
@@ -99,10 +105,7 @@ float_tt RK45Solver_t<CallableClass_t, BaseClass_t, float_tt>::one_step(const Ba
 {
   const BaseClass_t &X = _BaseClass_in;
   BaseClass_t &Y = _BaseClass_out,
-              &Ydeg = BaseClass_out_deg,
-              K1, K2, K3, K4, K5, K6,
-              K1int, K2int, K3int, K4int, K5int, K6int,
-              dX;
+              &Ydeg = BaseClass_out_deg;
 
   K1 = Callable(X);
 
@@ -137,7 +140,7 @@ float_tt RK45Solver_t<CallableClass_t, BaseClass_t, float_tt>::one_step(const Ba
   dX = (K1*(RKF.b1-RKF.bb1) + K2*(RKF.b2-RKF.bb2) + K3*(RKF.b3-RKF.bb3) + K4*(RKF.b4-RKF.bb4) + K5*(RKF.b5-RKF.bb5) + K6*(RKF.b6-RKF.bb6))*dt;
   Ydeg = X + dX;
 
-  return (Y-Ydeg).norm();
+  return Y.compare(Ydeg);
 }
 
 template <typename CallableClass_t, typename BaseClass_t, typename float_tt>
